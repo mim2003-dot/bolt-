@@ -45,7 +45,7 @@ type Booking = {
 };
 type AppData = { rooms: Room[]; bookings: Booking[] };
 
-const ICAL_COLOR = '#66717d';
+const ICAL_COLOR = '#1b86b5';
 type ModalMode = 'booking' | 'room' | 'details' | null;
 
 type BookingForm = {
@@ -177,8 +177,8 @@ export default function App() {
     roomId: 'luna',
     start: formatDate(new Date()),
     end: formatDate(new Date()),
-    checkIn: '14:00',
-    checkOut: '12:00',
+    checkIn: '',
+    checkOut: '',
     color: COLORS[0].value,
     note: '',
   });
@@ -243,7 +243,7 @@ export default function App() {
     const today = new Date();
     const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
     const start = month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear() ? today : monthStart;
-    setBookingForm({ guest: '', roomId: firstRoom?.id ?? '', start: formatDate(start), end: formatDate(start), checkIn: '14:00', checkOut: '12:00', color: COLORS[0].value, note: '' });
+    setBookingForm({ guest: '', roomId: firstRoom?.id ?? '', start: formatDate(start), end: formatDate(start), checkIn: '', checkOut: '', color: COLORS[0].value, note: '' });
     setEditingBookingId(null);
     setEditingIcalBookingId(null);
     setDateField(null);
@@ -251,7 +251,7 @@ export default function App() {
   }
 
   function openNewBookingOnDate(roomId: string, date: string) {
-    setBookingForm({ guest: '', roomId, start: date, end: date, checkIn: '14:00', checkOut: '12:00', color: COLORS[0].value, note: '' });
+    setBookingForm({ guest: '', roomId, start: date, end: date, checkIn: '', checkOut: '', color: COLORS[0].value, note: '' });
     setEditingBookingId(null);
     setEditingIcalBookingId(null);
     setDateField(null);
@@ -259,7 +259,7 @@ export default function App() {
   }
 
   function openEditBooking(booking: Booking) {
-    setBookingForm({ guest: booking.guest, roomId: booking.roomId, start: booking.start, end: booking.end, checkIn: booking.checkIn || '14:00', checkOut: booking.checkOut || '12:00', color: booking.color, note: booking.note });
+    setBookingForm({ guest: booking.guest, roomId: booking.roomId, start: booking.start, end: booking.end, checkIn: booking.checkIn || '', checkOut: booking.checkOut || '', color: booking.color, note: booking.note });
     setEditingBookingId(booking.id);
     setEditingIcalBookingId(null);
     setSelectedBooking(null);
@@ -273,8 +273,8 @@ export default function App() {
       roomId: booking.room_id,
       start: booking.start_date,
       end: booking.end_date,
-      checkIn: booking.check_in || '14:00',
-      checkOut: booking.check_out || '12:00',
+      checkIn: booking.check_in || '',
+      checkOut: booking.check_out || '',
       color: booking.color || ICAL_COLOR,
       note: booking.note || '',
     });
@@ -564,8 +564,8 @@ export default function App() {
                             style={{ backgroundColor: ib.color || ICAL_COLOR, left: barLeft, width: barWidth, top: 3, zIndex: 0 }}
                           >
                             <span className="booking-text">{ib.local_summary || ib.summary}</span>
-                            <span className="booking-time booking-time-in">{ib.check_in || '14:00'}</span>
-                            <span className="booking-time booking-time-out">{ib.check_out || '12:00'}</span>
+                            <span className="booking-time booking-time-in">{ib.check_in || ''}</span>
+                            <span className="booking-time booking-time-out">{ib.check_out || ''}</span>
                           </button>
                         );
                       })}
