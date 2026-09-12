@@ -544,7 +544,7 @@ export default function App() {
                         return (
                           <button
                             key={booking.id}
-                            onClick={() => { setSelectedBooking(booking); setModal('details'); }}
+                            onClick={() => { setSelectedBooking(booking); setSelectedIcalBooking(null); setModal('details'); }}
                             className="booking-bar"
                             style={{ backgroundColor: booking.color, left: barLeft, width: barWidth, top: overlapCount > 0 ? 3 : 18, zIndex: bookingIndex + 1 }}
                           >
@@ -567,7 +567,7 @@ export default function App() {
                         return (
                           <button
                             key={`ical-${ib.id}`}
-                            onClick={() => { setSelectedIcalBooking(ib); setModal('details'); }}
+                            onClick={() => { setSelectedIcalBooking(ib); setSelectedBooking(null); setModal('details'); }}
                             className="booking-bar ical-bar"
                             style={{ backgroundColor: ib.color || ICAL_COLOR, left: barLeft, width: barWidth, top: 3, zIndex: 0 }}
                           >
