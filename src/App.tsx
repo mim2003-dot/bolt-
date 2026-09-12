@@ -101,6 +101,18 @@ function dateLabel(value: string): string {
   return parseDate(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+const VIEW_DAYS = 60;
+
+function getViewDays(startDate: Date, count: number): Date[] {
+  const days: Date[] = [];
+  const cursor = new Date(startDate);
+  for (let i = 0; i < count; i++) {
+    days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
 function getMonthDays(date: Date): Date[] {
   const days: Date[] = [];
   const cursor = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -112,19 +124,19 @@ function getMonthDays(date: Date): Date[] {
 }
 
 function CalendarPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [month, setMonth] = useState(parseDate(value));
-  const days = getMonthDays(month);
-  const offset = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const [calMonth, setCalMonth] = useState(parseDate(value));
+  const days = getMonthDays(calMonth);
+  const offset = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1).getDay();
   const cells = Array.from({ length: offset + days.length }, (_, index) => days[index - offset]);
 
   return (
     <div className="calendar-picker">
       <div className="calendar-header">
-        <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="icon-button-small">
+        <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))} className="icon-button-small">
           <ChevronLeft size={18} color="#66717d" />
         </button>
-        <span className="calendar-title">{MONTHS[month.getMonth()]} {month.getFullYear()}</span>
-        <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="icon-button-small">
+        <span className="calendar-title">{MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}</span>
+        <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))} className="icon-button-small">
           <ChevronRight size={18} color="#66717d" />
         </button>
       </div>
@@ -157,7 +169,7 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
 }
 
 export default function App() {
-  const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [viewStart, setViewStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [data, setData] = useState<AppData>({
     rooms: [
       { id: 'luna', name: 'Luna' },
@@ -217,32 +229,27 @@ export default function App() {
     });
   }, [loaded, data]);
 
-  const days = useMemo(() => getMonthDays(month), [month]);
+  const days = useMemo(() => getViewDays(viewStart, VIEW_DAYS), [viewStart]);
   const timelineWidth = days.length * DAY_WIDTH;
   const contentWidth = ROOM_WIDTH + timelineWidth;
-  const monthLabel = `${MONTHS[month.getMonth()]} ${month.getFullYear()}`;
+  const monthLabel = `${MONTHS[viewStart.getMonth()]} ${viewStart.getFullYear()}`;
   const todayValue = formatDate(new Date());
 
   useLayoutEffect(() => {
     if (!scrollToToday) return;
-    const todayIndex = days.findIndex((day) => formatDate(day) === todayValue);
-    if (todayIndex >= 0) {
-      timelineScrollRef.current?.scrollTo({ left: todayIndex * DAY_WIDTH, behavior: 'smooth' });
-    }
+    timelineScrollRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
     setScrollToToday(false);
-  }, [days, scrollToToday, todayValue]);
+  }, [scrollToToday]);
 
   function goToToday() {
-    const today = new Date();
-    setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setViewStart(new Date());
     setScrollToToday(true);
   }
 
   function openNewBooking() {
     const firstRoom = data.rooms[0];
     const today = new Date();
-    const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
-    const start = month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear() ? today : monthStart;
+    const start = viewStart <= today ? today : viewStart;
     setBookingForm({ guest: '', roomId: firstRoom?.id ?? '', start: formatDate(start), end: formatDate(start), checkIn: '', checkOut: '', color: COLORS[0].value, note: '' });
     setEditingBookingId(null);
     setEditingIcalBookingId(null);
@@ -435,7 +442,7 @@ export default function App() {
   }
 
   function shiftMonth(amount: number) {
-    setMonth(new Date(month.getFullYear(), month.getMonth() + amount, 1));
+    setViewStart(new Date(viewStart.getFullYear(), viewStart.getMonth() + amount, 1));
   }
 
   return (

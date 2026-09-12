@@ -95,6 +95,9 @@ Deno.serve(async (req: Request) => {
         start_date: e.start,
         end_date: e.end,
         summary: e.summary || "Booking.com",
+        color: "#1b86b5",
+        check_in: "",
+        check_out: "",
       }));
       const { error } = await supabase.from("ical_bookings").insert(rows);
       if (error) throw error;

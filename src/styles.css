@@ -2,7 +2,7 @@
   --ink: #17212b;
   --muted: #66717d;
   --pale: #a8b0b8;
-  --line: #b8c3ca;
+  --line: #5a6b78;
   --blue: #1b86b5;
 }
 
@@ -84,7 +84,7 @@ input, textarea {
 .room-header { padding: 0 16px; display: flex; align-items: center; border-right: 1px solid var(--line); background: #f0f3f4; position: sticky; left: 0; z-index: 100; }
 .header-text { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
 .day-header-row { display: flex; }
-.day-header { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-right: 1px solid #c8d0d6; }
+.day-header { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-right: 1px solid #5a6b78; }
 .weekend-header { background: #fff0ee; }
 .weekday { color: var(--muted); font-size: 10px; font-weight: 700; }
 .day-number { color: var(--ink); font-size: 16px; font-weight: 700; }
@@ -92,7 +92,7 @@ input, textarea {
 .past-day .weekday { opacity: 0.4; }
 .weekend-text { color: #cb5d59; }
 
-.room-row { height: 82px; display: flex; border-bottom: 1px solid #c8d0d6; }
+.room-row { height: 82px; display: flex; border-bottom: 1px solid #5a6b78; }
 .room-cell { padding: 10px 12px; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; border-right: 1px solid var(--line); background: #fff; position: sticky; left: 0; z-index: 100; overflow: hidden; }
 .room-cell-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .room-name { color: var(--ink); font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -102,7 +102,7 @@ input, textarea {
 .icon-btn:hover { opacity: 0.6; }
 
 .timeline { height: 100%; position: relative; display: flex; overflow: hidden; }
-.day-cell-timeline { height: 100%; border-right: 1px solid #c8d0d6; background: #fff; cursor: pointer; transition: background 0.15s; }
+.day-cell-timeline { height: 100%; border-right: 1px solid #5a6b78; background: #fff; cursor: pointer; transition: background 0.15s; }
 .day-cell-timeline:hover { background: #e6eff5; }
 .weekend-cell { background: #fff8f7; }
 .weekend-cell:hover { background: #f9e8e4; }
