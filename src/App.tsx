@@ -242,7 +242,8 @@ export default function App() {
   }, [scrollToToday]);
 
   function goToToday() {
-    setViewStart(new Date());
+    const now = new Date();
+    setViewStart(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
     setScrollToToday(true);
   }
 
