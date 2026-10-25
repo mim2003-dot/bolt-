@@ -79,13 +79,17 @@ Deno.serve(async (req: Request) => {
 
     const { data: existing } = await supabase
       .from("ical_bookings")
-      .select("uid")
+      .select("uid, end_date")
       .eq("room_id", roomId);
-    const existingUids = new Set((existing ?? []).map((r: { uid: string }) => r.uid));
+    const existingRows = (existing ?? []) as { uid: string; end_date: string }[];
+    const existingUids = new Set(existingRows.map((row) => row.uid));
 
     const newEvents = events.filter((e) => !existingUids.has(e.uid));
-    const newUids = new Set(events.map((e) => e.uid));
-    const staleUids = [...existingUids].filter((u) => !newUids.has(u));
+    const feedUids = new Set(events.map((e) => e.uid));
+    const today = new Date().toISOString().slice(0, 10);
+    const staleUids = existingRows
+      .filter((row) => !feedUids.has(row.uid) && row.end_date >= today)
+      .map((row) => row.uid);
 
     let inserted = 0;
     if (newEvents.length > 0) {

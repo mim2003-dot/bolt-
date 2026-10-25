@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
+  Palette,
   ChevronLeft,
   ChevronRight,
   FileDown,
@@ -47,6 +48,7 @@ type AppData = { rooms: Room[]; bookings: Booking[] };
 
 const ICAL_COLOR = '#1b86b5';
 type ModalMode = 'booking' | 'room' | 'details' | null;
+type ThemeId = 'theme-classic' | 'theme-illustrated' | 'theme-domiki' | 'theme-autumn';
 
 type BookingForm = {
   guest: string;
@@ -60,6 +62,8 @@ type BookingForm = {
 };
 
 const STORAGE_KEY = 'room-booking-data';
+const ICAL_STORAGE_KEY = 'room-booking-ical-data';
+const THEME_STORAGE_KEY = 'room-booking-theme';
 const ROOM_WIDTH = 118;
 const DAY_WIDTH = 52;
 const COLORS = [
@@ -203,6 +207,7 @@ export default function App() {
   const [icalBookings, setIcalBookings] = useState<IcalBooking[]>([]);
   const [syncingRoom, setSyncingRoom] = useState<string | null>(null);
   const [roomIcalUrl, setRoomIcalUrl] = useState('');
+  const [theme, setTheme] = useState<ThemeId>('theme-classic');
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -215,6 +220,21 @@ export default function App() {
         setMessage('Не удалось прочитать сохранённые данные.');
       }
     }
+
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
+    if (storedTheme === 'theme-classic' || storedTheme === 'theme-illustrated' || storedTheme === 'theme-domiki' || storedTheme === 'theme-autumn') {
+      setTheme(storedTheme);
+    }
+
+    const storedIcal = localStorage.getItem(ICAL_STORAGE_KEY);
+    if (storedIcal) {
+      try {
+        const parsed = JSON.parse(storedIcal) as IcalBooking[];
+        if (Array.isArray(parsed)) setIcalBookings(parsed);
+      } catch {
+        setMessage('Не удалось прочитать сохранённые бронирования Booking.com.');
+      }
+    }
     setLoaded(true);
   }, []);
 
@@ -224,10 +244,23 @@ export default function App() {
 
   useEffect(() => {
     if (!loaded) return;
-    supabase.from('ical_bookings').select('*').then(({ data: rows }) => {
-      if (rows) setIcalBookings(rows as IcalBooking[]);
+    localStorage.setItem(ICAL_STORAGE_KEY, JSON.stringify(icalBookings));
+  }, [icalBookings, loaded]);
+
+  useEffect(() => {
+    if (loaded) localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    let active = true;
+    supabase.from('ical_bookings').select('*').then(({ data: rows, error }) => {
+      if (active && !error && rows) setIcalBookings(rows as IcalBooking[]);
     });
-  }, [loaded, data]);
+    return () => {
+      active = false;
+    };
+  }, [loaded]);
 
   const days = useMemo(() => getViewDays(viewStart, VIEW_DAYS), [viewStart]);
   const timelineWidth = days.length * DAY_WIDTH;
@@ -387,6 +420,14 @@ export default function App() {
     roomsWithIcal.forEach((room) => syncRoom(room));
   }
 
+  useEffect(() => {
+    const handleOnline = () => {
+      data.rooms.filter((room) => room.icalUrl).forEach((room) => syncRoom(room));
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [data.rooms]);
+
   function removeBooking(booking: Booking) {
     setData((current) => ({ ...current, bookings: current.bookings.filter((item) => item.id !== booking.id) }));
     setSelectedBooking(null);
@@ -447,7 +488,7 @@ export default function App() {
   }
 
   return (
-    <div className="screen">
+    <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' ? ' theme-illustrated' : ''}`}>
       <div className="top-bar">
         <div className="brand-row">
           <div className="brand-mark"><CalendarDays size={22} color="#ffffff" /></div>
@@ -457,6 +498,16 @@ export default function App() {
           </div>
         </div>
         <div className="top-actions">
+          <label className="theme-picker">
+            <Palette size={16} />
+            <span className="theme-picker-label">Вид</span>
+            <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeId)} aria-label="Выбрать вид приложения">
+              <option value="theme-classic">Исходный</option>
+              <option value="theme-illustrated">Иллюстрированный</option>
+              <option value="theme-domiki">Домики</option>
+              <option value="theme-autumn">Осень</option>
+            </select>
+          </label>
           <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>Синхронизировать iCal</span></button>
           <button onClick={restoreBackup} className="outline-button"><FileUp size={17} color="#17212b" /><span>Восстановить</span></button>
           <button onClick={downloadBackup} className="outline-button"><FileDown size={17} color="#17212b" /><span>Скачать бэкап</span></button>
@@ -778,7 +829,7 @@ export default function App() {
               </div>
             )}
 
-            {modal === 'details' && selectedIcalBooking && (
+            {modal === 'details' && !selectedBooking && selectedIcalBooking && (
               <div>
                 <div className="modal-header">
                   <div><span className="modal-title">{selectedIcalBooking.local_summary || selectedIcalBooking.summary || 'Бронирование без имени'}</span><span className="modal-subtitle">Импортировано из Booking.com</span></div>
