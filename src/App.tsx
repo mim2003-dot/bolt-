@@ -45,6 +45,15 @@ type Booking = {
   note: string;
 };
 type AppData = { rooms: Room[]; bookings: Booking[] };
+type RoomRow = { id: string; name: string; color: string | null; ical_url: string | null };
+
+function roomFromRow(row: RoomRow): Room {
+  return { id: row.id, name: row.name, color: row.color ?? undefined, icalUrl: row.ical_url ?? undefined };
+}
+
+function roomToRow(room: Room): RoomRow {
+  return { id: room.id, name: room.name, color: room.color ?? null, ical_url: room.icalUrl || null };
+}
 
 const ICAL_COLOR = '#1b86b5';
 type ModalMode = 'booking' | 'room' | 'details' | null;
@@ -262,6 +271,28 @@ export default function App() {
     };
   }, [loaded]);
 
+  useEffect(() => {
+    if (!loaded) return;
+    let active = true;
+    supabase.from('rooms').select('*').order('created_at').then(async ({ data: rows, error }) => {
+      if (!active) return;
+      if (error) {
+        setMessage('Не удалось загрузить квартиры из базы.');
+        return;
+      }
+      if (rows && rows.length > 0) {
+        setData((current) => ({ ...current, rooms: (rows as RoomRow[]).map(roomFromRow) }));
+        return;
+      }
+      if (data.rooms.length === 0) return;
+      const { error: uploadError } = await supabase.from('rooms').upsert(data.rooms.map(roomToRow), { onConflict: 'id', ignoreDuplicates: true });
+      if (active && uploadError) setMessage('Не удалось сохранить квартиры в базе.');
+    });
+    return () => {
+      active = false;
+    };
+  }, [loaded]);
+
   const days = useMemo(() => getViewDays(viewStart, VIEW_DAYS), [viewStart]);
   const timelineWidth = days.length * DAY_WIDTH;
   const contentWidth = ROOM_WIDTH + timelineWidth;
@@ -364,7 +395,7 @@ export default function App() {
     }
   }
 
-  function saveRoom() {
+  async function saveRoom() {
     const name = roomName.trim();
     if (!name) {
       setMessage('Введите название квартиры.');
@@ -372,14 +403,30 @@ export default function App() {
     }
     const icalUrl = roomIcalUrl.trim();
     if (roomBeingEdited) {
+      const { error } = await supabase.from('rooms').update({ name, color: roomColor, ical_url: icalUrl || null }).eq('id', roomBeingEdited.id);
+      if (error) {
+        setMessage('Не удалось сохранить квартиру.');
+        return;
+      }
       setData((current) => ({ ...current, rooms: current.rooms.map((room) => room.id === roomBeingEdited.id ? { ...room, name, color: roomColor, icalUrl } : room) }));
     } else {
-      setData((current) => ({ ...current, rooms: [...current.rooms, { id: `room-${Date.now()}`, name, color: roomColor, icalUrl }] }));
+      const room: Room = { id: `room-${Date.now()}`, name, color: roomColor, icalUrl };
+      const { error } = await supabase.from('rooms').insert(roomToRow(room));
+      if (error) {
+        setMessage('Не удалось добавить квартиру.');
+        return;
+      }
+      setData((current) => ({ ...current, rooms: [...current.rooms, room] }));
     }
     setModal(null);
   }
 
-  function removeRoom(room: Room) {
+  async function removeRoom(room: Room) {
+    const { error } = await supabase.from('rooms').delete().eq('id', room.id);
+    if (error) {
+      setMessage('Не удалось удалить квартиру.');
+      return;
+    }
     setData((current) => ({ rooms: current.rooms.filter((item) => item.id !== room.id), bookings: current.bookings.filter((booking) => booking.roomId !== room.id) }));
     supabase.from('ical_bookings').delete().eq('room_id', room.id).then();
   }
