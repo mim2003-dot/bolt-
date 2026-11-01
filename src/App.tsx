@@ -173,7 +173,7 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
 }
 
 export default function App() {
-  const [viewStart, setViewStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [viewStart, setViewStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
   const [data, setData] = useState<AppData>({
     rooms: [
       { id: 'luna', name: 'Luna' },
