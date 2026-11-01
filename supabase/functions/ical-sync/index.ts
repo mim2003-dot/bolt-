@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
     const feedUids = new Set(events.map((e) => e.uid));
     const today = new Date().toISOString().slice(0, 10);
     const staleUids = existingRows
-      .filter((row) => !feedUids.has(row.uid) && row.end_date >= today)
+      .filter((row) => !feedUids.has(row.uid) && row.end_date > today)
       .map((row) => row.uid);
 
     let inserted = 0;
