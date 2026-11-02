@@ -57,7 +57,7 @@ function roomToRow(room: Room): RoomRow {
 
 const ICAL_COLOR = '#1b86b5';
 type ModalMode = 'booking' | 'room' | 'details' | null;
-type ThemeId = 'theme-classic' | 'theme-illustrated' | 'theme-domiki' | 'theme-autumn';
+type ThemeId = 'theme-classic' | 'theme-illustrated' | 'theme-domiki' | 'theme-autumn' | 'theme-winter';
 
 type BookingForm = {
   guest: string;
@@ -231,7 +231,7 @@ export default function App() {
     }
 
     const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
-    if (storedTheme === 'theme-classic' || storedTheme === 'theme-illustrated' || storedTheme === 'theme-domiki' || storedTheme === 'theme-autumn') {
+    if (storedTheme === 'theme-classic' || storedTheme === 'theme-illustrated' || storedTheme === 'theme-domiki' || storedTheme === 'theme-autumn' || storedTheme === 'theme-winter') {
       setTheme(storedTheme);
     }
 
@@ -535,7 +535,7 @@ export default function App() {
   }
 
   return (
-    <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' ? ' theme-illustrated' : ''}`}>
+    <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' || theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
       <div className="top-bar">
         <div className="brand-row">
           <div className="brand-mark"><CalendarDays size={22} color="#ffffff" /></div>
@@ -553,6 +553,7 @@ export default function App() {
               <option value="theme-illustrated">Иллюстрированный</option>
               <option value="theme-domiki">Домики</option>
               <option value="theme-autumn">Осень</option>
+              <option value="theme-winter">Зима</option>
             </select>
           </label>
           <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>Синхронизировать iCal</span></button>
@@ -590,7 +591,7 @@ export default function App() {
                     return (
                       <div key={dayValue} className={`day-header${weekend ? ' weekend-header' : ''}${past ? ' past-day' : ''}`} style={{ width: DAY_WIDTH }}>
                         <span className={`weekday${weekend ? ' weekend-text' : ''}`}>{WEEKDAYS[day.getDay()]}</span>
-                        <span className={`day-number${weekend ? ' weekend-text' : ''}`}>{day.getDate()}</span>
+                        <span className={`day-number${weekend ? ' weekend-text' : ''}`}>{`${day.getDate()}.${day.getMonth() + 1}`}</span>
                       </div>
                     );
                   })}
