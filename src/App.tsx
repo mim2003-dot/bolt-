@@ -559,7 +559,7 @@ export default function App() {
   return (
     <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' || theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
       <div
-        className={theme === 'theme-winter' && winterHeader ? 'top-bar photo-top-bar' : 'top-bar'}
+        className="top-bar"
         style={theme === 'theme-winter' && winterHeader ? { backgroundImage: `url('${winterHeader}')` } : undefined}
       >
         <div className="brand-row">
