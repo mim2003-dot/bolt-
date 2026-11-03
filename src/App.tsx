@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FileDown,
   FileUp,
+  ImagePlus,
   Pencil,
   Plus,
   RefreshCw,
@@ -13,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import { readImageAsDataUrl } from './headerImage';
 import './styles.css';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -73,6 +75,7 @@ type BookingForm = {
 const STORAGE_KEY = 'room-booking-data';
 const ICAL_STORAGE_KEY = 'room-booking-ical-data';
 const THEME_STORAGE_KEY = 'room-booking-theme';
+const WINTER_HEADER_STORAGE_KEY = 'room-booking-winter-header';
 const ROOM_WIDTH = 118;
 const DAY_WIDTH = 52;
 const COLORS = [
@@ -217,6 +220,7 @@ export default function App() {
   const [syncingRoom, setSyncingRoom] = useState<string | null>(null);
   const [roomIcalUrl, setRoomIcalUrl] = useState('');
   const [theme, setTheme] = useState<ThemeId>('theme-classic');
+  const [winterHeader, setWinterHeader] = useState<string | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -234,6 +238,9 @@ export default function App() {
     if (storedTheme === 'theme-classic' || storedTheme === 'theme-illustrated' || storedTheme === 'theme-domiki' || storedTheme === 'theme-autumn' || storedTheme === 'theme-winter') {
       setTheme(storedTheme);
     }
+
+    const storedWinterHeader = localStorage.getItem(WINTER_HEADER_STORAGE_KEY);
+    if (storedWinterHeader) setWinterHeader(storedWinterHeader);
 
     const storedIcal = localStorage.getItem(ICAL_STORAGE_KEY);
     if (storedIcal) {
@@ -530,13 +537,31 @@ export default function App() {
     input.click();
   }
 
+  async function changeWinterHeader(file: File) {
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      localStorage.setItem(WINTER_HEADER_STORAGE_KEY, dataUrl);
+      setWinterHeader(dataUrl);
+    } catch {
+      setMessage('Не удалось сохранить фото шапки. Попробуйте другое фото.');
+    }
+  }
+
+  function resetWinterHeader() {
+    localStorage.removeItem(WINTER_HEADER_STORAGE_KEY);
+    setWinterHeader(null);
+  }
+
   function shiftMonth(amount: number) {
     setViewStart(new Date(viewStart.getFullYear(), viewStart.getMonth() + amount, 1));
   }
 
   return (
     <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' || theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
-      <div className="top-bar">
+      <div
+        className="top-bar"
+        style={theme === 'theme-winter' && winterHeader ? { backgroundImage: `linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)), url('${winterHeader}')` } : undefined}
+      >
         <div className="brand-row">
           <div className="brand-mark"><CalendarDays size={22} color="#ffffff" /></div>
           <div>
@@ -559,6 +584,24 @@ export default function App() {
           <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>Синхронизировать iCal</span></button>
           <button onClick={restoreBackup} className="outline-button"><FileUp size={17} color="#17212b" /><span>Восстановить</span></button>
           <button onClick={downloadBackup} className="outline-button"><FileDown size={17} color="#17212b" /><span>Скачать бэкап</span></button>
+          {theme === 'theme-winter' && (
+            <>
+              <label className="outline-button">
+                <ImagePlus size={17} color="#17212b" /><span>Фото шапки</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) changeWinterHeader(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+              {winterHeader && <button onClick={resetWinterHeader} className="outline-button"><span>Вернуть фото</span></button>}
+            </>
+          )}
           <button onClick={openNewBooking} className="primary-button"><Plus size={18} color="#ffffff" /><span>Новая бронь</span></button>
         </div>
       </div>
