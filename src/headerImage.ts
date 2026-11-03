@@ -1,4 +1,4 @@
-const MAX_SIDE = 1600;
+const MAX_SIDE = 2000;
 
 export function readImageAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -16,7 +16,7 @@ export function readImageAsDataUrl(file: File): Promise<string> {
         return;
       }
       context.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);

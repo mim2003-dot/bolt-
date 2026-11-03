@@ -560,7 +560,7 @@ export default function App() {
     <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' || theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
       <div
         className="top-bar"
-        style={theme === 'theme-winter' && winterHeader ? { backgroundImage: `linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)), url('${winterHeader}')` } : undefined}
+        style={theme === 'theme-winter' && winterHeader ? { backgroundImage: `url('${winterHeader}')` } : undefined}
       >
         <div className="brand-row">
           <div className="brand-mark"><CalendarDays size={22} color="#ffffff" /></div>
@@ -578,7 +578,7 @@ export default function App() {
               <option value="theme-illustrated">Иллюстрированный</option>
               <option value="theme-domiki">Домики</option>
               <option value="theme-autumn">Осень</option>
-              <option value="theme-winter">Зима</option>
+              <option value="theme-winter">Фото</option>
             </select>
           </label>
           <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>Синхронизировать iCal</span></button>
