@@ -6,6 +6,8 @@ import {
   ChevronRight,
   FileDown,
   FileUp,
+  FileText,
+  Download,
   ImagePlus,
   Pencil,
   Plus,
@@ -48,6 +50,15 @@ type Booking = {
 };
 type AppData = { rooms: Room[]; bookings: Booking[] };
 type RoomRow = { id: string; name: string; color: string | null; ical_url: string | null };
+type BookingRow = { id: string; room_id: string; guest: string; start: string; end: string; check_in: string; check_out: string; color: string; note: string };
+
+function bookingToRow(booking: Booking): BookingRow {
+  return { id: booking.id, room_id: booking.roomId, guest: booking.guest, start: booking.start, end: booking.end, check_in: booking.checkIn, check_out: booking.checkOut, color: booking.color, note: booking.note };
+}
+
+function bookingFromRow(row: BookingRow): Booking {
+  return { id: row.id, roomId: row.room_id, guest: row.guest, start: row.start, end: row.end, checkIn: row.check_in, checkOut: row.check_out, color: row.color, note: row.note };
+}
 
 function roomFromRow(row: RoomRow): Room {
   return { id: row.id, name: row.name, color: row.color ?? undefined, icalUrl: row.ical_url ?? undefined };
@@ -58,7 +69,8 @@ function roomToRow(room: Room): RoomRow {
 }
 
 const ICAL_COLOR = '#1b86b5';
-type ModalMode = 'booking' | 'room' | 'details' | null;
+type ModalMode = 'booking' | 'room' | 'details' | 'report' | null;
+const REPORT_COLORS = ['#1b86b5', '#5c9f4b', '#d28b2d', '#d8665b', '#8661a8', '#2d8f8f', '#c46b9e', '#6b8fc4'];
 type ThemeId = 'theme-classic' | 'theme-illustrated' | 'theme-domiki' | 'theme-autumn' | 'theme-winter';
 
 type BookingForm = {
@@ -76,6 +88,7 @@ const STORAGE_KEY = 'room-booking-data';
 const ICAL_STORAGE_KEY = 'room-booking-ical-data';
 const THEME_STORAGE_KEY = 'room-booking-theme';
 const WINTER_HEADER_STORAGE_KEY = 'room-booking-winter-header';
+const PENDING_OPS_KEY = 'room-booking-pending-ops';
 const ROOM_WIDTH = 118;
 const DAY_WIDTH = 52;
 const COLORS = [
@@ -184,6 +197,11 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
   );
 }
 
+type PendingOp =
+  | { kind: 'upsert'; table: 'bookings' | 'rooms'; row: BookingRow | RoomRow }
+  | { kind: 'delete'; table: 'bookings' | 'rooms' | 'ical_bookings'; id: string }
+  | { kind: 'ical_update'; id: string; updates: Record<string, unknown> };
+
 export default function App() {
   const [viewStart, setViewStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
   const [data, setData] = useState<AppData>({
@@ -221,7 +239,55 @@ export default function App() {
   const [roomIcalUrl, setRoomIcalUrl] = useState('');
   const [theme, setTheme] = useState<ThemeId>('theme-classic');
   const [winterHeader, setWinterHeader] = useState<string | null>(null);
+  const [reportMonth, setReportMonth] = useState<string>('all');
+  const [reportRoom, setReportRoom] = useState<string>('all');
   const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const pendingOpsRef = useRef<PendingOp[]>([]);
+
+  function loadPendingOps() {
+    try {
+      const stored = localStorage.getItem(PENDING_OPS_KEY);
+      if (stored) pendingOpsRef.current = JSON.parse(stored) as PendingOp[];
+    } catch { /* ignore */ }
+  }
+
+  function savePendingOps() {
+    localStorage.setItem(PENDING_OPS_KEY, JSON.stringify(pendingOpsRef.current));
+  }
+
+  function queueOp(op: PendingOp) {
+    pendingOpsRef.current = [...pendingOpsRef.current, op];
+    savePendingOps();
+  }
+
+  async function flushPendingOps() {
+    const ops = [...pendingOpsRef.current];
+    if (ops.length === 0) return;
+    const remaining: PendingOp[] = [];
+    for (const op of ops) {
+      let success = false;
+      if (op.kind === 'upsert') {
+        const { error } = op.table === 'bookings'
+          ? await supabase.from('bookings').upsert(op.row as BookingRow)
+          : await supabase.from('rooms').upsert(op.row as RoomRow);
+        success = !error;
+      } else if (op.kind === 'delete') {
+        const { error } = await supabase.from(op.table).delete().eq('id', op.id);
+        success = !error;
+      } else if (op.kind === 'ical_update') {
+        const { error } = await supabase.from('ical_bookings').update(op.updates).eq('id', op.id);
+        success = !error;
+      }
+      if (!success) remaining.push(op);
+    }
+    pendingOpsRef.current = remaining;
+    savePendingOps();
+    if (remaining.length === 0 && ops.length > 0) {
+      supabase.from('bookings').select('*').then(({ data: rows, error }) => {
+        if (!error && rows) setData((current) => ({ ...current, bookings: (rows as BookingRow[]).map(bookingFromRow) }));
+      });
+    }
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -252,6 +318,8 @@ export default function App() {
       }
     }
     setLoaded(true);
+    loadPendingOps();
+    if (navigator.onLine) flushPendingOps();
   }, []);
 
   useEffect(() => {
@@ -270,11 +338,66 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     let active = true;
-    supabase.from('ical_bookings').select('*').then(({ data: rows, error }) => {
-      if (active && !error && rows) setIcalBookings(rows as IcalBooking[]);
+    supabase.from('bookings').select('*').then(({ data: rows, error }) => {
+      if (active && !error && rows) {
+        setData((current) => ({ ...current, bookings: (rows as BookingRow[]).map(bookingFromRow) }));
+      }
     });
     return () => {
       active = false;
+    };
+  }, [loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const channel = supabase
+      .channel('bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const oldRow = payload.old as BookingRow;
+          setData((current) => ({ ...current, bookings: current.bookings.filter((b) => b.id !== oldRow.id) }));
+        } else {
+          const row = payload.new as BookingRow;
+          setData((current) => {
+            const exists = current.bookings.some((b) => b.id === row.id);
+            const booking = bookingFromRow(row);
+            return { ...current, bookings: exists ? current.bookings.map((b) => b.id === row.id ? booking : b) : [...current.bookings, booking] };
+          });
+        }
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const channel = supabase
+      .channel('ical-bookings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ical_bookings' }, () => {
+        supabase.from('ical_bookings').select('*').then(({ data: rows, error }) => {
+          if (!error && rows) setIcalBookings(rows as IcalBooking[]);
+        });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const channel = supabase
+      .channel('rooms-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => {
+        supabase.from('rooms').select('*').order('created_at').then(({ data: rows, error }) => {
+          if (!error && rows) setData((current) => ({ ...current, rooms: (rows as RoomRow[]).map(roomFromRow) }));
+        });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, [loaded]);
 
@@ -381,22 +504,40 @@ export default function App() {
         check_out: bookingForm.checkOut,
         note: bookingForm.note.trim(),
       };
-      const { error } = await supabase.from('ical_bookings').update(updates).eq('id', editingIcalBookingId);
-      if (error) {
-        setMessage('Не удалось сохранить изменения импортированной брони.');
-        return;
-      }
       setIcalBookings((current) => current.map((booking) => booking.id === editingIcalBookingId ? { ...booking, ...updates } : booking));
+      const op: PendingOp = { kind: 'ical_update', id: editingIcalBookingId, updates };
+      if (navigator.onLine) {
+        const { error } = await supabase.from('ical_bookings').update(updates).eq('id', editingIcalBookingId);
+        if (error) queueOp(op);
+      } else {
+        queueOp(op);
+      }
       setEditingIcalBookingId(null);
       setModal(null);
       setMessage('Изменения импортированной брони сохранены.');
     } else if (editingBookingId) {
-      setData((current) => ({ ...current, bookings: current.bookings.map((b) => b.id === editingBookingId ? { ...b, ...bookingForm, guest: bookingForm.guest.trim(), checkIn: bookingForm.checkIn, checkOut: bookingForm.checkOut } : b) }));
+      const updated: Booking = { ...bookingForm, id: editingBookingId, guest: bookingForm.guest.trim(), checkIn: bookingForm.checkIn, checkOut: bookingForm.checkOut };
+      setData((current) => ({ ...current, bookings: current.bookings.map((b) => b.id === editingBookingId ? { ...b, ...updated } : b) }));
+      const op: PendingOp = { kind: 'upsert', table: 'bookings', row: bookingToRow(updated) };
+      if (navigator.onLine) {
+        const { error } = await supabase.from('bookings').upsert(bookingToRow(updated));
+        if (error) queueOp(op);
+      } else {
+        queueOp(op);
+      }
       setEditingBookingId(null);
       setModal(null);
       setMessage('Бронирование обновлено.');
     } else {
-      setData((current) => ({ ...current, bookings: [...current.bookings, { ...bookingForm, id: `booking-${Date.now()}`, guest: bookingForm.guest.trim(), checkIn: bookingForm.checkIn, checkOut: bookingForm.checkOut }] }));
+      const newBooking: Booking = { ...bookingForm, id: `booking-${Date.now()}`, guest: bookingForm.guest.trim(), checkIn: bookingForm.checkIn, checkOut: bookingForm.checkOut };
+      setData((current) => ({ ...current, bookings: [...current.bookings, newBooking] }));
+      const op: PendingOp = { kind: 'upsert', table: 'bookings', row: bookingToRow(newBooking) };
+      if (navigator.onLine) {
+        const { error } = await supabase.from('bookings').upsert(bookingToRow(newBooking));
+        if (error) queueOp(op);
+      } else {
+        queueOp(op);
+      }
       setModal(null);
       setMessage('Бронирование добавлено.');
     }
@@ -410,32 +551,42 @@ export default function App() {
     }
     const icalUrl = roomIcalUrl.trim();
     if (roomBeingEdited) {
-      const { error } = await supabase.from('rooms').update({ name, color: roomColor, ical_url: icalUrl || null }).eq('id', roomBeingEdited.id);
-      if (error) {
-        setMessage('Не удалось сохранить квартиру.');
-        return;
+      const updatedRoom: Room = { ...roomBeingEdited, name, color: roomColor, icalUrl };
+      setData((current) => ({ ...current, rooms: current.rooms.map((room) => room.id === roomBeingEdited.id ? updatedRoom : room) }));
+      const op: PendingOp = { kind: 'upsert', table: 'rooms', row: roomToRow(updatedRoom) };
+      if (navigator.onLine) {
+        const { error } = await supabase.from('rooms').update({ name, color: roomColor, ical_url: icalUrl || null }).eq('id', roomBeingEdited.id);
+        if (error) queueOp(op);
+      } else {
+        queueOp(op);
       }
-      setData((current) => ({ ...current, rooms: current.rooms.map((room) => room.id === roomBeingEdited.id ? { ...room, name, color: roomColor, icalUrl } : room) }));
     } else {
       const room: Room = { id: `room-${Date.now()}`, name, color: roomColor, icalUrl };
-      const { error } = await supabase.from('rooms').insert(roomToRow(room));
-      if (error) {
-        setMessage('Не удалось добавить квартиру.');
-        return;
-      }
       setData((current) => ({ ...current, rooms: [...current.rooms, room] }));
+      const op: PendingOp = { kind: 'upsert', table: 'rooms', row: roomToRow(room) };
+      if (navigator.onLine) {
+        const { error } = await supabase.from('rooms').insert(roomToRow(room));
+        if (error) queueOp(op);
+      } else {
+        queueOp(op);
+      }
     }
     setModal(null);
   }
 
   async function removeRoom(room: Room) {
-    const { error } = await supabase.from('rooms').delete().eq('id', room.id);
-    if (error) {
-      setMessage('Не удалось удалить квартиру.');
-      return;
-    }
     setData((current) => ({ rooms: current.rooms.filter((item) => item.id !== room.id), bookings: current.bookings.filter((booking) => booking.roomId !== room.id) }));
-    supabase.from('ical_bookings').delete().eq('room_id', room.id).then();
+    const op: PendingOp = { kind: 'delete', table: 'rooms', id: room.id };
+    if (navigator.onLine) {
+      const { error } = await supabase.from('rooms').delete().eq('id', room.id);
+      if (error) {
+        queueOp(op);
+      } else {
+        supabase.from('ical_bookings').delete().eq('room_id', room.id).then();
+      }
+    } else {
+      queueOp(op);
+    }
   }
 
   async function syncRoom(room: Room) {
@@ -476,29 +627,39 @@ export default function App() {
 
   useEffect(() => {
     const handleOnline = () => {
+      flushPendingOps();
       data.rooms.filter((room) => room.icalUrl).forEach((room) => syncRoom(room));
     };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, [data.rooms]);
 
-  function removeBooking(booking: Booking) {
+  async function removeBooking(booking: Booking) {
     setData((current) => ({ ...current, bookings: current.bookings.filter((item) => item.id !== booking.id) }));
     setSelectedBooking(null);
     setModal(null);
     setMessage('Бронирование удалено.');
+    const op: PendingOp = { kind: 'delete', table: 'bookings', id: booking.id };
+    if (navigator.onLine) {
+      const { error } = await supabase.from('bookings').delete().eq('id', booking.id);
+      if (error) queueOp(op);
+    } else {
+      queueOp(op);
+    }
   }
 
   async function removeIcalBooking(booking: IcalBooking) {
-    const { error } = await supabase.from('ical_bookings').delete().eq('id', booking.id);
-    if (error) {
-      setMessage('Не удалось удалить импортированную бронь.');
-      return;
-    }
     setIcalBookings((current) => current.filter((item) => item.id !== booking.id));
     setSelectedIcalBooking(null);
     setModal(null);
     setMessage('Импортированная бронь удалена локально.');
+    const op: PendingOp = { kind: 'delete', table: 'ical_bookings', id: booking.id };
+    if (navigator.onLine) {
+      const { error } = await supabase.from('ical_bookings').delete().eq('id', booking.id);
+      if (error) queueOp(op);
+    } else {
+      queueOp(op);
+    }
   }
 
   function downloadBackup() {
@@ -517,6 +678,30 @@ export default function App() {
     }
   }
 
+  function openReport() {
+    setModal('report');
+  }
+
+  function downloadReportCsv() {
+    const rows = filteredReport;
+    const sep = ';';
+    const header = ['Квартира', 'Гость', 'Заезд', 'Выезд', 'Ночей', 'Источник', 'Примечание'].join(sep);
+    const csvRows = rows.map((r) => [r.room, r.guest, r.start, r.end, String(r.nights), r.source, r.note].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(sep));
+    const csv = '\ufeff' + [header, ...csvRows].join('\r\n');
+    try {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `report-${formatDate(new Date())}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setMessage('Отчёт сохранён в CSV.');
+    } catch {
+      setMessage('Не удалось создать CSV.');
+    }
+  }
+
   function restoreBackup() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -530,6 +715,13 @@ export default function App() {
         if (!Array.isArray(restored.rooms) || !Array.isArray(restored.bookings)) throw new Error('invalid');
         setData({ rooms: restored.rooms, bookings: restored.bookings });
         setMessage('Данные восстановлены из бэкапа.');
+        if (navigator.onLine) {
+          await supabase.from('rooms').upsert(restored.rooms.map(roomToRow), { onConflict: 'id' });
+          await supabase.from('bookings').upsert(restored.bookings.map(bookingToRow), { onConflict: 'id' });
+        } else {
+          restored.rooms.forEach((room) => queueOp({ kind: 'upsert', table: 'rooms', row: roomToRow(room) }));
+          restored.bookings.forEach((booking) => queueOp({ kind: 'upsert', table: 'bookings', row: bookingToRow(booking) }));
+        }
       } catch {
         setMessage('Файл бэкапа не распознан.');
       }
@@ -556,6 +748,48 @@ export default function App() {
     setViewStart(new Date(viewStart.getFullYear(), viewStart.getMonth() + amount, 1));
   }
 
+  const filteredReport = useMemo(() => {
+    type ReportRow = { room: string; roomId: string; guest: string; start: string; end: string; nights: number; note: string; source: string; month: string };
+    const rows: ReportRow[] = [];
+    for (const room of data.rooms) {
+      if (reportRoom !== 'all' && room.id !== reportRoom) continue;
+      for (const b of data.bookings.filter((b) => b.roomId === room.id)) {
+        const month = b.start.slice(0, 7);
+        if (reportMonth !== 'all' && month !== reportMonth) continue;
+        rows.push({ room: room.name, roomId: room.id, guest: b.guest || '—', start: b.start, end: b.end, nights: Math.max(daysBetween(b.start, b.end) - 1, 0), note: b.note || '', source: 'ручная', month });
+      }
+      for (const ib of icalBookings.filter((ib) => ib.room_id === room.id)) {
+        const month = ib.start_date.slice(0, 7);
+        if (reportMonth !== 'all' && month !== reportMonth) continue;
+        rows.push({ room: room.name, roomId: room.id, guest: ib.local_summary || ib.summary || '—', start: ib.start_date, end: ib.end_date, nights: Math.max(daysBetween(ib.start_date, ib.end_date) - 1, 0), note: ib.note || '', source: 'iCal', month });
+      }
+    }
+    return rows.sort((a, b) => a.start.localeCompare(b.start));
+  }, [data, icalBookings, reportMonth, reportRoom]);
+
+  const reportMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of data.bookings) set.add(b.start.slice(0, 7));
+    for (const ib of icalBookings) set.add(ib.start_date.slice(0, 7));
+    return Array.from(set).sort();
+  }, [data.bookings, icalBookings]);
+
+  const reportByRoom = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of filteredReport) map.set(r.roomId, (map.get(r.roomId) ?? 0) + r.nights);
+    return data.rooms.map((room) => ({ name: room.name, nights: map.get(room.id) ?? 0 }));
+  }, [filteredReport, data.rooms]);
+
+  const reportByMonth = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of filteredReport) map.set(r.month, (map.get(r.month) ?? 0) + r.nights);
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([m, n]) => ({ month: m, nights: n }));
+  }, [filteredReport]);
+
+  const totalNights = filteredReport.reduce((s, r) => s + r.nights, 0);
+  const maxRoomNights = Math.max(1, ...reportByRoom.map((r) => r.nights));
+  const maxMonthNights = Math.max(1, ...reportByMonth.map((r) => r.nights));
+
   return (
     <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' || theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
       <div
@@ -570,17 +804,19 @@ export default function App() {
           </div>
         </div>
         <div className="top-actions">
-          <label className="theme-picker">
-            <Palette size={16} />
-            <span className="theme-picker-label">Вид</span>
-            <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeId)} aria-label="Выбрать вид приложения">
-              <option value="theme-classic">Исходный</option>
-              <option value="theme-illustrated">Иллюстрированный</option>
-              <option value="theme-domiki">Домики</option>
-              <option value="theme-autumn">Осень</option>
-              <option value="theme-winter">Фото</option>
-            </select>
-          </label>
+          <div className="theme-report-group">
+            <label className="theme-picker theme-picker-compact">
+              <Palette size={16} />
+              <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeId)} aria-label="Выбрать вид приложения">
+                <option value="theme-classic">Исходный</option>
+                <option value="theme-illustrated">Иллюстрированный</option>
+                <option value="theme-domiki">Домики</option>
+                <option value="theme-autumn">Осень</option>
+                <option value="theme-winter">Фото</option>
+              </select>
+            </label>
+            <button onClick={openReport} className="outline-button outline-button-compact"><FileText size={17} color="#17212b" /><span>Отчёт</span></button>
+          </div>
           <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>Синхронизировать iCal</span></button>
           <button onClick={restoreBackup} className="outline-button"><FileUp size={17} color="#17212b" /><span>Восстановить</span></button>
           <button onClick={downloadBackup} className="outline-button"><FileDown size={17} color="#17212b" /><span>Скачать бэкап</span></button>
@@ -946,6 +1182,115 @@ export default function App() {
                 <div className="detail-actions">
                   <button onClick={() => openEditIcalBooking(selectedIcalBooking)} className="edit-button"><Pencil size={17} color="#176681" /><span>Изменить</span></button>
                   <button onClick={() => removeIcalBooking(selectedIcalBooking)} className="delete-button"><Trash2 size={17} color="#bd554e" /><span>Удалить</span></button>
+                </div>
+              </div>
+            )}
+
+            {modal === 'report' && (
+              <div className="report-modal-content">
+                <div className="modal-header">
+                  <div><span className="modal-title">Отчёт по бронированиям</span><span className="modal-subtitle">Аналитика и выгрузка</span></div>
+                  <button onClick={() => setModal(null)} className="close-button"><X size={20} color="#66717d" /></button>
+                </div>
+
+                <div className="report-filters">
+                  <label className="field-label">Месяц</label>
+                  <select value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="text-input report-select">
+                    <option value="all">Все месяцы</option>
+                    {reportMonths.map((m) => {
+                      const [y, mo] = m.split('-');
+                      return <option key={m} value={m}>{MONTHS[Number(mo) - 1]} {y}</option>;
+                    })}
+                  </select>
+                  <label className="field-label">Квартира</label>
+                  <select value={reportRoom} onChange={(e) => setReportRoom(e.target.value)} className="text-input report-select">
+                    <option value="all">Все квартиры</option>
+                    {data.rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
+                  </select>
+                  <button onClick={downloadReportCsv} className="save-button report-csv-btn"><Download size={16} color="#fff" /><span className="save-button-text">Скачать CSV</span></button>
+                </div>
+
+                <div className="report-stats">
+                  <div className="report-stat-card">
+                    <span className="report-stat-number">{filteredReport.length}</span>
+                    <span className="report-stat-label">бронирований</span>
+                  </div>
+                  <div className="report-stat-card">
+                    <span className="report-stat-number">{totalNights}</span>
+                    <span className="report-stat-label">ночей всего</span>
+                  </div>
+                  <div className="report-stat-card">
+                    <span className="report-stat-number">{data.rooms.length}</span>
+                    <span className="report-stat-label">квартир</span>
+                  </div>
+                </div>
+
+                {reportByRoom.length > 0 && (
+                  <div className="report-chart-section">
+                    <span className="report-chart-title">Ночи по квартирам</span>
+                    <div className="report-bars">
+                      {reportByRoom.map((r, i) => (
+                        <div key={r.name} className="report-bar-row">
+                          <span className="report-bar-label">{r.name}</span>
+                          <div className="report-bar-track">
+                            <div className="report-bar-fill" style={{ width: `${(r.nights / maxRoomNights) * 100}%`, backgroundColor: REPORT_COLORS[i % REPORT_COLORS.length] }} />
+                            <span className="report-bar-value">{r.nights}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {reportByMonth.length > 0 && (
+                  <div className="report-chart-section">
+                    <span className="report-chart-title">Ночи по месяцам</span>
+                    <div className="report-chart-months">
+                      {reportByMonth.map((r, i) => {
+                        const [y, mo] = r.month.split('-');
+                        return (
+                          <div key={r.month} className="report-month-col">
+                            <div className="report-month-bar-wrap">
+                              <div className="report-month-bar" style={{ height: `${(r.nights / maxMonthNights) * 100}%`, backgroundColor: REPORT_COLORS[i % REPORT_COLORS.length] }} />
+                            </div>
+                            <span className="report-month-label">{MONTHS[Number(mo) - 1].slice(0, 3)}</span>
+                            <span className="report-month-value">{r.nights}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="report-table-wrap">
+                  <table className="report-table">
+                    <thead>
+                      <tr>
+                        <th>Квартира</th>
+                        <th>Гость</th>
+                        <th>Заезд</th>
+                        <th>Выезд</th>
+                        <th>Ночей</th>
+                        <th>Источник</th>
+                        <th>Примечание</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReport.length === 0 ? (
+                        <tr><td colSpan={7} className="report-empty">Нет данных для выбранных фильтров</td></tr>
+                      ) : filteredReport.map((r, i) => (
+                        <tr key={i} className={r.source === 'iCal' ? 'report-row-ical' : ''}>
+                          <td><span className="report-room-tag" style={{ backgroundColor: REPORT_COLORS[data.rooms.findIndex((rm) => rm.id === r.roomId) % REPORT_COLORS.length] }}>{r.room}</span></td>
+                          <td>{r.guest}</td>
+                          <td>{dateLabel(r.start)}</td>
+                          <td>{dateLabel(r.end)}</td>
+                          <td className="report-nights-cell">{r.nights}</td>
+                          <td><span className={`report-source-badge ${r.source === 'iCal' ? 'report-source-ical' : 'report-source-manual'}`}>{r.source}</span></td>
+                          <td className="report-note-cell">{r.note || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
