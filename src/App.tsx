@@ -713,15 +713,19 @@ export default function App() {
         const text = await file.text();
         const restored = JSON.parse(text) as AppData;
         if (!Array.isArray(restored.rooms) || !Array.isArray(restored.bookings)) throw new Error('invalid');
-        setData({ rooms: restored.rooms, bookings: restored.bookings });
-        setMessage('Данные восстановлены из бэкапа.');
         if (navigator.onLine) {
-          await supabase.from('rooms').upsert(restored.rooms.map(roomToRow), { onConflict: 'id' });
-          await supabase.from('bookings').upsert(restored.bookings.map(bookingToRow), { onConflict: 'id' });
+          const roomsResult = await supabase.from('rooms').upsert(restored.rooms.map(roomToRow), { onConflict: 'id' });
+          const bookingsResult = await supabase.from('bookings').upsert(restored.bookings.map(bookingToRow), { onConflict: 'id' });
+          if (roomsResult.error || bookingsResult.error) {
+            setMessage('Не удалось сохранить бэкап в базе. Проверьте интернет и попробуйте ещё раз.');
+            return;
+          }
         } else {
           restored.rooms.forEach((room) => queueOp({ kind: 'upsert', table: 'rooms', row: roomToRow(room) }));
           restored.bookings.forEach((booking) => queueOp({ kind: 'upsert', table: 'bookings', row: bookingToRow(booking) }));
         }
+        setData({ rooms: restored.rooms, bookings: restored.bookings });
+        setMessage('Данные восстановлены из бэкапа.');
       } catch {
         setMessage('Файл бэкапа не распознан.');
       }
