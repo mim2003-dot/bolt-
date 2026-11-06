@@ -71,7 +71,7 @@ function roomToRow(room: Room): RoomRow {
 const ICAL_COLOR = '#1b86b5';
 type ModalMode = 'booking' | 'room' | 'details' | 'report' | null;
 const REPORT_COLORS = ['#1b86b5', '#5c9f4b', '#d28b2d', '#d8665b', '#8661a8', '#2d8f8f', '#c46b9e', '#6b8fc4'];
-type ThemeId = 'theme-classic' | 'theme-illustrated' | 'theme-domiki' | 'theme-autumn' | 'theme-winter';
+type ThemeId = 'theme-classic' | 'theme-illustrated' | 'theme-winter';
 
 type BookingForm = {
   guest: string;
@@ -301,7 +301,7 @@ export default function App() {
     }
 
     const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
-    if (storedTheme === 'theme-classic' || storedTheme === 'theme-illustrated' || storedTheme === 'theme-domiki' || storedTheme === 'theme-autumn' || storedTheme === 'theme-winter') {
+    if (storedTheme === 'theme-classic' || storedTheme === 'theme-illustrated' || storedTheme === 'theme-winter') {
       setTheme(storedTheme);
     }
 
@@ -743,11 +743,6 @@ export default function App() {
     }
   }
 
-  function resetWinterHeader() {
-    localStorage.removeItem(WINTER_HEADER_STORAGE_KEY);
-    setWinterHeader(null);
-  }
-
   function shiftMonth(amount: number) {
     setViewStart(new Date(viewStart.getFullYear(), viewStart.getMonth() + amount, 1));
   }
@@ -795,7 +790,7 @@ export default function App() {
   const maxMonthNights = Math.max(1, ...reportByMonth.map((r) => r.nights));
 
   return (
-    <div className={`screen ${theme}${theme === 'theme-domiki' || theme === 'theme-autumn' || theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
+    <div className={`screen ${theme}${theme === 'theme-winter' ? ' theme-illustrated' : ''}`}>
       <div
         className={theme === 'theme-winter' && winterHeader ? 'top-bar photo-top-bar' : 'top-bar'}
         style={theme === 'theme-winter' && winterHeader ? { backgroundImage: `url('${winterHeader}')` } : undefined}
@@ -814,8 +809,6 @@ export default function App() {
               <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeId)} aria-label="Выбрать вид приложения">
                 <option value="theme-classic">Исходный</option>
                 <option value="theme-illustrated">Иллюстрированный</option>
-                <option value="theme-domiki">Домики</option>
-                <option value="theme-autumn">Осень</option>
                 <option value="theme-winter">Фото</option>
               </select>
             </label>
@@ -839,7 +832,6 @@ export default function App() {
                   }}
                 />
               </label>
-              {winterHeader && <button onClick={resetWinterHeader} className="outline-button"><span>Вернуть фото</span></button>}
             </>
           )}
           <button onClick={openNewBooking} className="primary-button"><Plus size={18} color="#ffffff" /><span>Новая бронь</span></button>
