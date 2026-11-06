@@ -985,7 +985,7 @@ export default function App() {
 
       {modal !== null && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
-          <div className={`modal-card${modal === 'booking' ? ' booking-modal-card' : ''}`} onClick={(e) => e.stopPropagation()}>
+          <div className={`modal-card${modal === 'booking' ? ' booking-modal-card' : modal === 'report' ? ' report-modal-card' : ''}`} onClick={(e) => e.stopPropagation()}>
             {modal === 'booking' && (
               <div className="form-content">
                 <div className="modal-header">
