@@ -814,9 +814,9 @@ export default function App() {
             </label>
             <button onClick={openReport} className="outline-button outline-button-compact"><FileText size={17} color="#17212b" /><span>Отчёт</span></button>
           </div>
-          <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>Синхронизировать iCal</span></button>
+          <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>iCal</span></button>
           <button onClick={restoreBackup} className="outline-button"><FileUp size={17} color="#17212b" /><span>Восстановить</span></button>
-          <button onClick={downloadBackup} className="outline-button"><FileDown size={17} color="#17212b" /><span>Скачать бэкап</span></button>
+          <button onClick={downloadBackup} className="outline-button"><FileDown size={17} color="#17212b" /><span>Бэкап</span></button>
           {theme === 'theme-winter' && (
             <>
               <label className="outline-button">
