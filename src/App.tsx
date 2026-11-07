@@ -815,12 +815,12 @@ export default function App() {
             <button onClick={openReport} className="outline-button outline-button-compact"><FileText size={17} color="#17212b" /><span>Отчёт</span></button>
           </div>
           <button onClick={syncAll} className="outline-button"><RefreshCw size={17} color="#17212b" /><span>iCal</span></button>
-          <button onClick={restoreBackup} className="outline-button"><FileUp size={17} color="#17212b" /><span>Восстановить</span></button>
+          <button onClick={restoreBackup} className="outline-button"><FileUp size={17} color="#17212b" /><span>Из бэкапа</span></button>
           <button onClick={downloadBackup} className="outline-button"><FileDown size={17} color="#17212b" /><span>Бэкап</span></button>
           {theme === 'theme-winter' && (
             <>
               <label className="outline-button">
-                <ImagePlus size={17} color="#17212b" /><span>Фото шапки</span>
+                <ImagePlus size={17} color="#17212b" /><span>Шапка</span>
                 <input
                   type="file"
                   accept="image/*"
