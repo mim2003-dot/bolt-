@@ -92,11 +92,11 @@ const PENDING_OPS_KEY = 'room-booking-pending-ops';
 const ROOM_WIDTH = 118;
 const DAY_WIDTH = 52;
 const COLORS = [
-  { name: 'Океан', value: '#1b86b5' },
-  { name: 'Лес', value: '#5c9f4b' },
-  { name: 'Янтарь', value: '#d28b2d' },
-  { name: 'Корал', value: '#d8665b' },
-  { name: 'Слива', value: '#8661a8' },
+  { name: 'Букинг', value: '#1b86b5' },
+  { name: 'Ручн', value: '#5c9f4b' },
+  { name: 'Дополн', value: '#d28b2d' },
+  { name: 'Внимание', value: '#d8665b' },
+  { name: 'Перенос', value: '#8661a8' },
 ];
 const APARTMENT_COLORS = [
   { name: 'Белый', value: '#ffffff' },
