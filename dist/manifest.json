@@ -1,6 +1,6 @@
 {
-  "name": "RoomBooking — личный календарь комнат",
-  "short_name": "RoomBooking",
+  "name": "Apbook",
+  "short_name": "Apbook",
   "description": "Личный календарь бронирования квартир",
   "start_url": "/",
   "display": "standalone",
