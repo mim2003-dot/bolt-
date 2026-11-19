@@ -798,7 +798,7 @@ export default function App() {
         <div className="brand-row">
           <div className="brand-mark"><CalendarDays size={22} color="#ffffff" /></div>
           <div>
-            <span className="brand">RoomBooking</span>
+            <span className="brand">Apbook</span>
             <span className="brand-subtitle">личный календарь квартир</span>
           </div>
         </div>
