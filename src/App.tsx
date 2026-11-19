@@ -796,7 +796,6 @@ export default function App() {
         style={theme === 'theme-winter' && winterHeader ? { backgroundImage: `url('${winterHeader}')` } : undefined}
       >
         <div className="brand-row">
-          <div className="brand-mark"><CalendarDays size={22} color="#ffffff" /></div>
           <div>
             <span className="brand">Apbook</span>
             <span className="brand-subtitle">личный календарь квартир</span>
