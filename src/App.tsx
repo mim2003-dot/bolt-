@@ -919,7 +919,7 @@ export default function App() {
                             key={booking.id}
                             onClick={() => { setSelectedBooking(booking); setSelectedIcalBooking(null); setModal('details'); }}
                             className="booking-bar"
-                            style={{ backgroundColor: booking.color, left: barLeft, width: barWidth, top: overlapCount > 0 ? 3 : 18, zIndex: bookingIndex + 1 }}
+                            style={{ backgroundColor: booking.color, left: barLeft, width: barWidth, top: 18 + overlapCount * 12, zIndex: bookingIndex + 1 }}
                           >
                             <span className="booking-text">{booking.guest}</span>
                             <span className="booking-time booking-time-in">{booking.checkIn}</span>
