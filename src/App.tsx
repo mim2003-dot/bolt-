@@ -927,7 +927,7 @@ export default function App() {
                           </button>
                         );
                       })}
-                      {roomIcalBookings.map((ib) => {
+                      {roomIcalBookings.map((ib, bookingIndex) => {
                         const start = parseDate(ib.start_date);
                         const first = days[0];
                         const offset = Math.round((start.getTime() - first.getTime()) / 86400000);
@@ -937,12 +937,17 @@ export default function App() {
                         const endCenter = (offset + span - 1) * DAY_WIDTH + DAY_WIDTH / 2;
                         const barLeft = startCenter + SKEW_OFFSET;
                         const barWidth = Math.max(endCenter - startCenter - SKEW_OFFSET, 30);
+                        const overlapCount = roomIcalBookings.slice(0, bookingIndex).filter((other) => {
+                          const sharesStayDate = other.start_date < ib.end_date && other.end_date > ib.start_date;
+                          const isSameSingleDayBooking = other.start_date === ib.start_date && other.end_date === ib.end_date;
+                          return sharesStayDate || isSameSingleDayBooking;
+                        }).length;
                         return (
                           <button
                             key={`ical-${ib.id}`}
                             onClick={() => { setSelectedIcalBooking(ib); setSelectedBooking(null); setModal('details'); }}
                             className="booking-bar ical-bar"
-                            style={{ backgroundColor: ib.color || ICAL_COLOR, left: barLeft, width: barWidth, top: 3, zIndex: 0 }}
+                            style={{ backgroundColor: ib.color || ICAL_COLOR, left: barLeft, width: barWidth, top: 3 + overlapCount * 12, zIndex: bookingIndex }}
                           >
                             <span className="booking-text">{ib.local_summary || ib.summary}</span>
                             <span className="booking-time booking-time-in">{ib.check_in || ''}</span>
